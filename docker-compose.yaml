@@ -1,0 +1,12 @@
+services:
+  hs_notifier:
+    image: homesecurityag/hs_notifier:latest
+    platform: linux/arm64
+    container_name: hs_notifier
+    env_file:
+      - .env
+    ports:
+      - "${PORT}:${PORT}"
+    volumes:
+      - ./HS_notifier/log:/app/log
+    restart: unless-stopped

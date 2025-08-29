@@ -2,7 +2,7 @@
 import { promises as fs } from "fs";
 import path from "path";
 import getSwissTime from "./timeHelper.js";
-import { sendNotification } from "./notify.js";
+import { notifyHS } from "./notifyHS.js";
 
 const LOG_DIR = path.resolve("log");
 const MAX_DAYS = 350;
@@ -90,7 +90,7 @@ const log = async (level, message, notify = false) => {
 
     // Always notify on ERROR, or if notify=true
     if (level === "error" || notify) {
-      sendNotification(level, message);
+      notifyHS(message);
     }
   } catch (err) {
     console.error("Logger write error:", err.message);

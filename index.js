@@ -75,23 +75,39 @@ function scheduleDaily(taskFn, hour = 2, minute = 0) {
     }
 
     // 🚀 Start services
-    try {
-      startServer();
-      logger.info("✅ Server started");
-
-      // 📡 Configure Hikvision HTTP host (non-blocking)
-      try {
-        configureQrScanner();
-        logger.info("📡 configureQrScanner kicked off");
-        configureShelly();
-        logger.info("📡 configureShelly kicked off");
-        setAllShellyOutputsOff();
-        logger.info("📡 setAllShellyOutputsOff kicked off");
-      } catch (e) {
-        logger.error(`configureQrScanner kickoff failed: ${e.stack || e.message}`);
+    async function runServerWithRetry(maxRetries = 5) {
+      let attempt = 0;
+      while (attempt < maxRetries) {
+        try {
+          await startServer();
+          logger.info("✅ Server started");
+          return; // success → exit loop
+        } catch (err) {
+          attempt++;
+          const delay = Math.min(30000, 2000 * attempt); // backoff up to 30s
+          logger.error(`Server startup failed (attempt ${attempt}): ${err.stack || err.message}`);
+          if (attempt >= maxRetries) {
+            logger.critical?.("❌ Server failed after max retries, exiting");
+            process.exit(1);
+          }
+          logger.warn(`Retrying server start in ${delay / 1000}s...`);
+          await new Promise((r) => setTimeout(r, delay));
+        }
       }
-    } catch (err) {
-      logger.error(`Server startup failed: ${err.stack || err.message}`);
+    }
+
+    await runServerWithRetry();
+
+    // 📡 Configure Hikvision HTTP host (non-blocking)
+    try {
+      configureQrScanner();
+      logger.info("📡 configureQrScanner kicked off");
+      configureShelly();
+      logger.info("📡 configureShelly kicked off");
+      setAllShellyOutputsOff();
+      logger.info("📡 setAllShellyOutputsOff kicked off");
+    } catch (e) {
+      logger.error(`configureQrScanner kickoff failed: ${e.stack || e.message}`);
     }
 
     try {
