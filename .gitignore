@@ -1,0 +1,19 @@
+# Env & secrets
+.env
+access.json
+
+# Logs
+log/
+*.log
+
+# Dependencies
+node_modules/
+
+# OS / editor
+.DS_Store
+*.swp
+
+# Optional build/cache
+dist/
+build/
+coverage/
