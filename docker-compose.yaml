@@ -1,12 +1,39 @@
 services:
+  init-logs:
+    image: busybox:latest
+    command: sh -c "rm -rf /log && mkdir -p /log/hs_notifier /log/qr_scanner && chown -R 1000:1000 /log"
+    volumes:
+      - ./log:/log
+    user: "0:0"
+    restart: "no"
+
   hs_notifier:
-    image: homesecurityag/hs_notifier:latest
-    platform: linux/arm64
+    image: homesecurityag/hs_notifier_x86_64:v1
     container_name: hs_notifier
     env_file:
       - .env
     ports:
       - "${PORT}:${PORT}"
     volumes:
-      - ./HS_notifier/log:/app/log
+      - ./log/hs_notifier:/app/log
     restart: unless-stopped
+    depends_on:
+      - init-logs
+
+  qr_scanner:
+    image: qr_scanner:latest
+    container_name: qr_scanner
+    env_file:
+      - .env
+    environment:
+      - ALLOW_REMOTE=true
+    working_dir: /app
+    command: node index.js
+    ports:
+      - "${SERVER_PORT}:${SERVER_PORT}"
+    volumes:
+      - ./log/qr_scanner:/app/log
+    restart: unless-stopped
+    depends_on:
+      - init-logs
+      - hs_notifier

@@ -1,8 +1,8 @@
 // volumeController.js
 import dotenv from "dotenv";
 dotenv.config();
-import fetch from 'node-fetch';
-import crypto from 'crypto';
+import fetch from "node-fetch";
+import crypto from "crypto";
 
 const IP = process.env.QR_SCANNER_IP;
 const USER = process.env.QR_SCANNER_USER;
@@ -10,7 +10,7 @@ const PASS = process.env.QR_SCANNER_PASS;
 
 // --- digest helper ---
 function parseDigestHeader(header) {
-  const pairs = [...(header || '').matchAll(/(\w+)="?([^",]+)"?/g)];
+  const pairs = [...(header || "").matchAll(/(\w+)="?([^",]+)"?/g)];
   const result = {};
   for (const [, k, v] of pairs) result[k] = v;
   return result;
@@ -46,20 +46,29 @@ export function volumeController(state = "off") {
 
       // digest
       const chal = parseDigestHeader(r1.headers.get("www-authenticate"));
-      const ha1 = crypto.createHash("md5").update(`${USER}:${chal.realm}:${PASS}`).digest("hex");
+      const ha1 = crypto
+        .createHash("md5")
+        .update(`${USER}:${chal.realm}:${PASS}`)
+        .digest("hex");
       const ha2 = crypto.createHash("md5").update(`PUT:${uri}`).digest("hex");
-      const response = crypto.createHash("md5").update(`${ha1}:${chal.nonce}:${ha2}`).digest("hex");
+      const response = crypto
+        .createHash("md5")
+        .update(`${ha1}:${chal.nonce}:${ha2}`)
+        .digest("hex");
       const authHeader = `Digest username="${USER}", realm="${chal.realm}", nonce="${chal.nonce}", uri="${uri}", response="${response}", algorithm="MD5"`;
 
       // send authenticated
       const r2 = await fetch(url, {
         method: "PUT",
-        headers: { Authorization: authHeader, "Content-Type": "application/xml" },
+        headers: {
+          Authorization: authHeader,
+          "Content-Type": "application/xml",
+        },
         body,
       });
 
       if (r2.status === 200) {
-        console.log(`🔊 Volume ${state.toUpperCase()} (set ${vol})`);
+        `🔊 Volume ${state.toUpperCase()} (set ${vol})`;
       } else {
         console.error(`❌ Volume change failed: ${r2.status}`);
       }

@@ -1,0 +1,18 @@
+cat > .dockerignore << 'EOF'
+node_modules
+npm-debug.log
+log
+*.log
+.env
+.git
+.gitignore
+docker-compose.yml
+HS_notifier/
+**/*.md
+**/*.test.*
+coverage
+dist
+EOF
+access.json
+log/
+

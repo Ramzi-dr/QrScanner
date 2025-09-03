@@ -1,6 +1,5 @@
 # Env & secrets
 .env
-access.json
 
 # Logs
 log/

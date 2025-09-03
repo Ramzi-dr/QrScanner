@@ -1,0 +1,6 @@
+services:
+  qr_scanner:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: qr_scanner:latest

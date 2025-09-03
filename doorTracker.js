@@ -21,15 +21,15 @@ dotenv.config({ quiet: true });
 const FILE = path.resolve("./access.json");
 
 // thresholds (seconds)
-const MAX_TIME_DOOR_OPEN_SEC = Number(process.env.MAX_TIME_DOOR_OPEN ?? 300); // first alarm threshold
-const MIN_ILLEGAL_OPEN_SEC   = Number(process.env.MIN_ILLEGAL_OPEN_SEC ?? 2); // ignore very short opens
-const EXIT_GRACE_SEC         = Number(process.env.EXIT_GRACE_SEC ?? 10);     // exit press valid window
+const MAX_TIME_DOOR_OPEN_SEC = Number(process.env.MAX_TIME_DOOR_OPEN ?? 1800); // first alarm threshold
+const MIN_ILLEGAL_OPEN_SEC = Number(process.env.MIN_ILLEGAL_OPEN_SEC ?? 10); // ignore very short opens
+const EXIT_GRACE_SEC = Number(process.env.EXIT_GRACE_SEC ?? 10); // exit press valid window
 
 let doorOpenedAt = null;
 let nextAlarmAt = null;
 let unauthorizedWarned = false;
 
-let lastExitButtonAt = 0;        // last time exitButtonPressed was true
+let lastExitButtonAt = 0; // last time exitButtonPressed was true
 let openCycleAuthorized = false; // latched authorization for the current open cycle
 
 async function readFileSafe() {
@@ -39,7 +39,9 @@ async function readFileSafe() {
       return JSON.parse(txt || "{}");
     }
   } catch (e) {
-    logger.error(`read access.json failed in doorTracker: ${e.stack || e.message}`);
+    logger.error(
+      `read access.json failed in doorTracker: ${e.stack || e.message}`,
+    );
   }
   return null;
 }
@@ -73,7 +75,8 @@ export function startDoorTracker() {
       const now = Date.now();
       const isOpen = obj.door.doorState === "Open"; // uses flipped mapping from shelly.js
       const accessState = obj.accessControle.accessState;
-      const accessGrantedNow = accessState !== "noAccess" && accessState !== "pending";
+      const accessGrantedNow =
+        accessState !== "noAccess" && accessState !== "pending";
 
       // Track exit button recency and IMMEDIATELY authorize the open cycle if door is open
       if (obj.button.exitButtonPressed === true) {
@@ -82,7 +85,8 @@ export function startDoorTracker() {
           openCycleAuthorized = true; // pressing while open should authorize this cycle right away
         }
       }
-      const exitPressedRecently = now - lastExitButtonAt <= EXIT_GRACE_SEC * 1000;
+      const exitPressedRecently =
+        now - lastExitButtonAt <= EXIT_GRACE_SEC * 1000;
 
       if (isOpen) {
         // Closed -> Open transition
@@ -97,7 +101,7 @@ export function startDoorTracker() {
             openCycleAuthorized = true;
           }
 
-          console.log("🚪 Door opened, watchdog tracking started...");
+          ("🚪 Door opened, watchdog tracking started...");
         }
 
         // While open: if not yet authorized, latch if a grant or recent exit press appears
@@ -107,7 +111,8 @@ export function startDoorTracker() {
 
         const openForSec = Math.round((now - doorOpenedAt) / 1000);
         const openEN = formatDurationEN(openForSec);
-        console.log(`⏱️ Door has been open for ${openEN}`);
+
+        `⏱️ Door has been open for ${openEN}`;
 
         // Unauthorized detection — ONLY if the current open cycle is NOT authorized
         if (
@@ -122,7 +127,8 @@ export function startDoorTracker() {
           // EN logs only
           const enMsg = `⚠️ Unauthorized door opening detected (open for ${openEN}, no access, no exit button)`;
           logger.warn(enMsg);
-          console.log(enMsg);
+
+          enMsg;
 
           // Bookmark in German
           await createBookmark({
@@ -140,7 +146,8 @@ export function startDoorTracker() {
           const openDE = formatDurationDE(openForSec);
           const enWarn = `⚠️ WARNING: The door has been open for ${openEN}`;
           logger.warn(enWarn, true);
-          console.log(`⛔ Alarm: ${enWarn}`);
+
+          `⛔ Alarm: ${enWarn}`;
 
           await createBookmark({
             name: "⚠️ Tür Warnung",
@@ -159,7 +166,7 @@ export function startDoorTracker() {
       } else {
         // Door closed → reset cycle flags & timers
         if (doorOpenedAt) {
-          console.log("🚪 Door closed, watchdog reset.");
+          ("🚪 Door closed, watchdog reset.");
         }
         doorOpenedAt = null;
         nextAlarmAt = null;

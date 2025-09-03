@@ -90,7 +90,7 @@ export function startServer(port = process.env.SERVER_PORT || 3000) {
               : `http://localhost:${port}`;
 
           const notifyHSmsg = `${SERVER_NAME} : ${SPAETER_WERKNR} running at : ${hosts}`;
-          notifyHS(notifyHSmsg, logger);
+          notifyHS(notifyHSmsg);
 
           resolve({ app, server });
         } catch (e) {

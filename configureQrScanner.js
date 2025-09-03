@@ -4,33 +4,24 @@ dotenv.config();
 import fetch from "node-fetch";
 import crypto from "crypto";
 import https from "https";
-import os from "os";
 import logger from "./logger.js";
 
-const HIK_IP   = process.env.QR_SCANNER_IP;        // camera IP (e.g., 192.168.76.155)
-const HIK_USER = process.env.QR_SCANNER_USER;
-const HIK_PASS = process.env.QR_SCANNER_PASS;
+// --- ENV configuration ---
+const HIK_IP     = process.env.QR_SCANNER_IP;
+const HIK_USER   = process.env.QR_SCANNER_USER;
+const HIK_PASS   = process.env.QR_SCANNER_PASS;
 
 const CALLBACK_PATH = process.env.QR_CALLBACK_PATH || "/qrScanner";
-const SERVER_PORT   = Number(process.env.SERVER_PORT || 3000); // <-- use SERVER_PORT
-const SECURITY      = String(process.env.QR_SECURITY || "1");  // query ?security=1
-const IV            = process.env.QR_IV || "";                 // optional &iv=...
+const SERVER_IP     = process.env.SERVER_IP || "";  // blank if not set
+const SERVER_PORT   = Number(process.env.SERVER_PORT || 3000);
+const SECURITY      = String(process.env.QR_SECURITY || "1");
+const IV            = process.env.QR_IV || "";
 
 const TIMEOUT_MS = 5000;
 const httpsAgent = new https.Agent({ rejectUnauthorized: false });
 
 // --- helpers ---
 const md5 = (s) => crypto.createHash("md5").update(s).digest("hex");
-
-function getLocalIp() {
-  const ifaces = os.networkInterfaces();
-  for (const name of Object.keys(ifaces)) {
-    for (const iface of ifaces[name]) {
-      if (iface.family === "IPv4" && !iface.internal) return iface.address;
-    }
-  }
-  return "127.0.0.1";
-}
 
 function parseDigestHeader(header) {
   const pairs = [...(header || "").matchAll(/(\w+)=(?:"([^"]+)"|([^\s,]+))/g)];
@@ -79,69 +70,65 @@ function buildAuthHeader(method, uri, chal, user, pass) {
   return `Digest username="${user}", realm="${realm}", nonce="${nonce}", uri="${uri}", response="${response}", algorithm=MD5${opaque ? `, opaque="${opaque}"` : ""}`;
 }
 
-// --- exported: fire-and-forget (non-blocking) ---
+// --- exported ---
 export function configureQrScanner() {
-  // return immediately; run async in background
-  setImmediate(() => {
-    if (!HIK_IP || !HIK_USER || !HIK_PASS) {
-      logger.error("configureQrScanner: missing QR_SCANNER_IP/USER/PASS in .env");
-      return;
-    }
+  setImmediate(async () => {
+    try {
+      if (!HIK_IP || !HIK_USER || !HIK_PASS) {
+        logger.error("configureQrScanner: missing QR_SCANNER_IP/USER/PASS in .env");
+        return;
+      }
 
-    const localIp = getLocalIp();
-    logger.info(`configureQrScanner: using server IP ${localIp}:${SERVER_PORT}`);
+      if (!SERVER_IP) {
+        logger.warn("configureQrScanner: SERVER_IP not set in .env — skipping QR scanner config.");
+        return; // 🚫 do nothing if SERVER_IP missing
+      }
 
-    const pathname = `/ISAPI/Event/notification/httpHosts/1`;
-    const search = `?security=${encodeURIComponent(SECURITY)}${IV ? `&iv=${encodeURIComponent(IV)}` : ""}`;
-    const fullUrl = `https://${HIK_IP}${pathname}${search}`;
-    const uriForDigest = `${pathname}${search}`;
-    const xml = buildXml({ path: CALLBACK_PATH, ip: localIp, port: SERVER_PORT });
+      logger.info(`configureQrScanner: using server IP ${SERVER_IP}:${SERVER_PORT}`);
 
-    // 1) Initial unauthenticated PUT to get digest challenge (or succeed if open)
-    withTimeout(fullUrl, {
-      method: "PUT",
-      body: xml,
-      headers: { "Content-Type": "application/xml" },
-      agent: httpsAgent,
-    })
-      .then(async (r1) => {
-        if (r1.status === 200) {
-          logger.info("configureQrScanner: config applied without auth (HTTP 200).");
-          return null; // done
-        }
+      const pathname = `/ISAPI/Event/notification/httpHosts/1`;
+      const search = `?security=${encodeURIComponent(SECURITY)}${IV ? `&iv=${encodeURIComponent(IV)}` : ""}`;
+      const fullUrl = `https://${HIK_IP}${pathname}${search}`;
+      const uriForDigest = `${pathname}${search}`;
+      const xml = buildXml({ path: CALLBACK_PATH, ip: SERVER_IP, port: SERVER_PORT });
 
-        const www = r1.headers.get("www-authenticate");
-        if (r1.status !== 401 || !www) {
-          const text = await r1.text().catch(() => "");
-          logger.error(`configureQrScanner: unexpected response ${r1.status} ${text}`);
-          return null; // stop
-        }
-
-        const chal = parseDigestHeader(www);
-        const authHeader = buildAuthHeader("PUT", uriForDigest, chal, HIK_USER, HIK_PASS);
-
-        // 2) Authenticated PUT
-        return withTimeout(fullUrl, {
-          method: "PUT",
-          body: xml,
-          headers: {
-            Authorization: authHeader,
-            "Content-Type": "application/xml",
-          },
-          agent: httpsAgent,
-        });
-      })
-      .then(async (r2) => {
-        if (!r2) return; // already handled or failed earlier
-        if (r2.status === 200) {
-          logger.info("configureQrScanner: QR HTTP host configured (HTTP 200).");
-        } else {
-          const text = await r2.text().catch(() => "");
-          logger.error(`configureQrScanner: authenticated PUT failed ${r2.status} ${text}`);
-        }
-      })
-      .catch((err) => {
-        logger.error(`configureQrScanner: exception ${err?.message || err}`);
+      const r1 = await withTimeout(fullUrl, {
+        method: "PUT",
+        body: xml,
+        headers: { "Content-Type": "application/xml" },
+        agent: httpsAgent,
       });
+
+      if (r1.status === 200) {
+        logger.info("configureQrScanner: config applied without auth (HTTP 200).");
+        return;
+      }
+
+      const www = r1.headers.get("www-authenticate");
+      if (r1.status !== 401 || !www) {
+        const text = await r1.text().catch(() => "");
+        logger.error(`configureQrScanner: unexpected response ${r1.status} ${text}`);
+        return;
+      }
+
+      const chal = parseDigestHeader(www);
+      const authHeader = buildAuthHeader("PUT", uriForDigest, chal, HIK_USER, HIK_PASS);
+
+      const r2 = await withTimeout(fullUrl, {
+        method: "PUT",
+        body: xml,
+        headers: { Authorization: authHeader, "Content-Type": "application/xml" },
+        agent: httpsAgent,
+      });
+
+      if (r2.status === 200) {
+        logger.info("configureQrScanner: QR HTTP host configured (HTTP 200).");
+      } else {
+        const text = await r2.text().catch(() => "");
+        logger.error(`configureQrScanner: authenticated PUT failed ${r2.status} ${text}`);
+      }
+    } catch (err) {
+      logger.error(`configureQrScanner: exception ${err?.stack || err}`);
+    }
   });
 }

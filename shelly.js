@@ -23,15 +23,15 @@ const FILE = path.resolve("./access.json");
 
 // env mappings (defaults: button=0, door=1, reserve=2)
 const EXIT_BUTTON_INPUT_ID = Number(process.env.EXIT_BUTTON_INPUT_ID ?? 0);
-const DOOR_STATE_INPUT_ID  = Number(process.env.DOOR_STATE_INPUT_ID ?? 1);
-const RESERVE_INPUT_ID     = Number(process.env.RESERVE_INPUT_ID ?? 2);
+const DOOR_STATE_INPUT_ID = Number(process.env.DOOR_STATE_INPUT_ID ?? 1);
+const RESERVE_INPUT_ID = Number(process.env.RESERVE_INPUT_ID ?? 2);
 
 const SHELLY_CALLBACK_PATH = process.env.SHELLY_CALLBACK_PATH || "/shelly";
 
 // window for "Exit granted" log (door opens shortly after button press)
 // ✅ now configured in SECONDS (default 3s)
 const EXIT_GRANT_WINDOW_SEC = Number(process.env.EXIT_GRANT_WINDOW_SEC ?? 3);
-const EXIT_GRANT_WINDOW_MS  = EXIT_GRANT_WINDOW_SEC * 1000;
+const EXIT_GRANT_WINDOW_MS = EXIT_GRANT_WINDOW_SEC * 1000;
 
 // track last exit button press
 let lastExitPressTs = 0;
@@ -128,7 +128,7 @@ router.post(SHELLY_CALLBACK_PATH, async (req, res) => {
 
       // required logs only
       if (inputNum === EXIT_BUTTON_INPUT_ID && stateBool === true) {
-        console.log("Exit button pressed");
+        ("Exit button pressed");
         logger.info("Exit button pressed");
         lastExitPressTs = Date.now();
       }
